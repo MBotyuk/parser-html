@@ -10,9 +10,11 @@ import org.jsoup.select.Elements;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.file.*;
 
 @Slf4j
 @Service
@@ -25,8 +27,24 @@ public class ScheduledParsingSite {
 
     private final EchoBotConfiguration echoBotConfiguration;
 
+    private final Path path = Paths.get("db.txt");
     private final StringBuilder sb = new StringBuilder();
     private String pastValueOfExchangeRate = "";
+
+    @PostConstruct
+    private void init() throws IOException {
+        try {
+            Files.createFile(path);
+        } catch (FileAlreadyExistsException ex) {
+            log.warn("File already exists");
+        }
+
+        String line = Files.readString(path);
+
+        if (!StringUtils.isBlank(line)) {
+            pastValueOfExchangeRate = line;
+        }
+    }
 
     @Scheduled(fixedDelay = 50000)
     private void parsing() {
@@ -54,8 +72,14 @@ public class ScheduledParsingSite {
                     .append("\n").append("100 RUB = ")
                     .append(VALUE_HUNDRED.divide(valueOfExchangeRateOfBigDecimal, 2, RoundingMode.HALF_UP))
                     .append(" BYN");
-            pastValueOfExchangeRate = newValueOfExchangeRate;
             echoBotConfiguration.sendExchangeRateToGroup(sb.toString());
+            pastValueOfExchangeRate = newValueOfExchangeRate;
+
+            try {
+                Files.writeString(path, newValueOfExchangeRate);
+            } catch (IOException e) {
+                log.error("Error write to file", e);
+            }
         }
     }
 }
