@@ -28,7 +28,7 @@ public class ScheduledParsingSite {
     private final StringBuilder sb = new StringBuilder();
     private String pastValueOfExchangeRate = "";
 
-    @Scheduled(fixedDelay = 60000)
+    @Scheduled(fixedDelay = 50000)
     private void parsing() {
         String newValueOfExchangeRate;
         try {
