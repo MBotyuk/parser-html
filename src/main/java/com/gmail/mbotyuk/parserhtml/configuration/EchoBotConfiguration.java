@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 @Slf4j
 @Configuration
@@ -35,8 +36,11 @@ public class EchoBotConfiguration extends TelegramLongPollingBot {
 
     }
 
-    @SneakyThrows
     public void sendExchangeRateToGroup(String exchangeRate) {
-        execute(new SendMessage(CHAT_ID, exchangeRate));
+        try {
+            execute(new SendMessage(CHAT_ID, exchangeRate));
+        } catch (TelegramApiException e) {
+            log.error("Error send to Telegram", e);
+        }
     }
 }

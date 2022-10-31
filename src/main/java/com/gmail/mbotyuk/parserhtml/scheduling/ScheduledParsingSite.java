@@ -2,16 +2,19 @@ package com.gmail.mbotyuk.parserhtml.scheduling;
 
 import com.gmail.mbotyuk.parserhtml.configuration.EchoBotConfiguration;
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ScheduledParsingSite {
@@ -23,23 +26,33 @@ public class ScheduledParsingSite {
     private final EchoBotConfiguration echoBotConfiguration;
 
     private final StringBuilder sb = new StringBuilder();
-    private Document document;
-    private Elements element;
     private String pastValueOfExchangeRate = "";
 
-    @SneakyThrows
     @Scheduled(fixedDelay = 60000)
     private void parsing() {
-        document = Jsoup.connect(URL).get();
-        element = document.selectXpath(X_PATH);
-        String newValueOfExchangeRate = element.text();
+        String newValueOfExchangeRate;
+        try {
+            Document document = Jsoup.connect(URL).get();
+            Elements element = document.selectXpath(X_PATH);
+            newValueOfExchangeRate = element.text();
+        } catch (IOException e) {
+            log.error("Error parsing HTML", e);
+            return;
+        }
+
+        if (StringUtils.isBlank(newValueOfExchangeRate)) {
+            log.warn("New value of exchange rate is blank");
+            return;
+        }
 
         if (!pastValueOfExchangeRate.equals(newValueOfExchangeRate)) {
             sb.setLength(0);
             BigDecimal valueOfExchangeRateOfBigDecimal = new BigDecimal(newValueOfExchangeRate.replace(',', '.'));
-            sb.append("Курс по карте Мир = " + newValueOfExchangeRate)
-                    .append("\n")
-                    .append("100 RUB = " + VALUE_HUNDRED.divide(valueOfExchangeRateOfBigDecimal, 2, RoundingMode.HALF_UP))
+            sb
+                    .append("Курс по карте Мир = ")
+                    .append(newValueOfExchangeRate)
+                    .append("\n").append("100 RUB = ")
+                    .append(VALUE_HUNDRED.divide(valueOfExchangeRateOfBigDecimal, 2, RoundingMode.HALF_UP))
                     .append(" BYN");
             pastValueOfExchangeRate = newValueOfExchangeRate;
             echoBotConfiguration.sendExchangeRateToGroup(sb.toString());
